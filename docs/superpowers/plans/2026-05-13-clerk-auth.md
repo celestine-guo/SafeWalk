@@ -33,6 +33,7 @@
 - Modify `backend/app/api/routers/__init__.py`: remove users router.
 - Delete `backend/app/api/routers/users.py`: local user API no longer exists.
 - Modify `backend/app/api/routers/trips.py`, `locations.py`, `emergencies.py`: require auth and enforce ownership.
+- Configure Clerk Dashboard Android application: add SafeWalk package name, debug SHA-256, and verify `assetlinks.json`.
 - Modify `backend/README.md`: document Clerk setup, Python 3.10+, and old DB caveat.
 - Create `backend/tests/test_clerk_auth_contract.py`: backend contract tests with auth dependency overrides.
 
@@ -1127,7 +1128,72 @@ git add backend/tests/test_clerk_auth_contract.py
 git commit -m "test: cover clerk auth backend contract"
 ```
 
-## Task 9: Documentation And Final Verification
+## Task 9: Clerk Dashboard Android Application Configuration
+
+**Files:**
+- No repository file changes in this task
+
+- [ ] **Step 1: Open Clerk Android application configuration**
+
+Open the Clerk Dashboard for the SafeWalk instance and navigate to the Android application setup for:
+
+```text
+https://brave-lobster-37.clerk.accounts.dev
+```
+
+- [ ] **Step 2: Add the SafeWalk Android app**
+
+Fill the Clerk form with:
+
+```text
+Namespace: Android app
+Package name: com.celestine.safewalk
+SHA-256 certificate fingerprints: EB:0A:8C:CE:4B:3B:FF:A9:F9:96:82:82:B9:05:40:CB:ED:F9:30:27:54:2B:9B:97:68:98:13:78:0C:02:C8:B1
+```
+
+This SHA-256 is the local Android debug keystore fingerprint from:
+
+```bash
+"/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/keytool" -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android
+```
+
+- [ ] **Step 3: Verify Clerk asset links**
+
+Open:
+
+```text
+https://brave-lobster-37.clerk.accounts.dev/.well-known/assetlinks.json
+```
+
+Expected: the response is no longer `[]` and contains an entry for:
+
+```json
+{
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.celestine.safewalk",
+    "sha256_cert_fingerprints": [
+      "EB:0A:8C:CE:4B:3B:FF:A9:F9:96:82:82:B9:05:40:CB:ED:F9:30:27:54:2B:9B:97:68:98:13:78:0C:02:C8:B1"
+    ]
+  }
+}
+```
+
+If it still returns `[]`, wait a few minutes and refresh. If it remains empty, reopen the Clerk Android application configuration and confirm the app was saved.
+
+- [ ] **Step 4: Record release keystore follow-up**
+
+Add this note to the final implementation summary:
+
+```text
+The configured SHA-256 is for the debug keystore only. Before shipping a release build, add the release keystore SHA-256 fingerprint to Clerk as an additional Android application fingerprint.
+```
+
+- [ ] **Step 5: Commit**
+
+No commit is needed unless documentation is updated in Task 10.
+
+## Task 10: Documentation And Final Verification
 
 **Files:**
 - Modify: `backend/README.md`
@@ -1172,6 +1238,14 @@ Android 调试需要配置：
 CLERK_PUBLISHABLE_KEY=pk_test_xxx
 SAFEWALK_BACKEND_BASE_URL=http://10.0.2.2:8000/api
 ```
+
+Clerk Dashboard 的 Android application 需要包含：
+
+```text
+Package name: com.celestine.safewalk
+Debug SHA-256: EB:0A:8C:CE:4B:3B:FF:A9:F9:96:82:82:B9:05:40:CB:ED:F9:30:27:54:2B:9B:97:68:98:13:78:0C:02:C8:B1
+Asset links: https://brave-lobster-37.clerk.accounts.dev/.well-known/assetlinks.json
+```
 ````
 
 - [ ] **Step 3: Run final checks**
@@ -1213,7 +1287,10 @@ Skip `Docs/项目介绍.md` in the `git add` command if the search shows it does
 ## Manual Environment Notes
 
 - Clerk Dashboard must have Native API enabled for the Android application.
+- Clerk Dashboard must include package `com.celestine.safewalk` and debug SHA-256 `EB:0A:8C:CE:4B:3B:FF:A9:F9:96:82:82:B9:05:40:CB:ED:F9:30:27:54:2B:9B:97:68:98:13:78:0C:02:C8:B1`.
+- Clerk asset links must be non-empty at `https://brave-lobster-37.clerk.accounts.dev/.well-known/assetlinks.json`.
 - `CLERK_PUBLISHABLE_KEY` must be available to the Android Gradle build.
 - Backend must run with `CLERK_SECRET_KEY` and `CLERK_PUBLISHABLE_KEY`.
 - `CLERK_JWT_KEY` is optional, but recommended for networkless backend verification.
+- Release builds need the release keystore SHA-256 added to Clerk before distribution.
 - Existing local `safewalk.db` is not migrated by this plan. Delete or recreate it manually if schema mismatch blocks local verification.
