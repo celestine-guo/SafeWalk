@@ -2,6 +2,7 @@
     <string name="app_name">SafeWalk</string>
     <string name="auth_loading">正在检查登录状态…</string>
     <string name="auth_missing_key">请先配置 CLERK_PUBLISHABLE_KEY</string>
+    <string name="auth_initialization_failed">登录服务初始化失败，请稍后重试</string>
     
     <!-- 顶部状态指示器 -->
     <string name="status_connected">已连接</string>

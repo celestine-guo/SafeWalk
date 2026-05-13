@@ -20,21 +20,58 @@ import com.clerk.ui.auth.AuthView
 fun AuthGate(
     signedInContent: @Composable () -> Unit,
 ) {
-    if (BuildConfig.CLERK_PUBLISHABLE_KEY.isBlank()) {
-        CenteredMessage(text = stringResource(id = R.string.auth_missing_key))
-        return
-    }
-
     val isInitialized by Clerk.isInitialized.collectAsStateWithLifecycle()
+    val clerkInitializationError by Clerk.initializationError.collectAsStateWithLifecycle()
+    val appInitializationError by SafeWalkAuthInitialization.initializationError.collectAsStateWithLifecycle()
     val user by Clerk.userFlow.collectAsStateWithLifecycle()
+    val state = resolveAuthGateState(
+        hasPublishableKey = BuildConfig.CLERK_PUBLISHABLE_KEY.isNotBlank(),
+        isInitialized = isInitialized,
+        initializationError = appInitializationError ?: clerkInitializationError,
+        isSignedIn = user != null
+    )
 
-    when {
-        !isInitialized -> AuthLoading()
-        user == null -> AuthView(
+    AuthGateContent(state = state, signedInContent = signedInContent)
+}
+
+enum class AuthGateState {
+    MissingKey,
+    InitializationFailed,
+    Loading,
+    SignedOut,
+    SignedIn
+}
+
+fun resolveAuthGateState(
+    hasPublishableKey: Boolean,
+    isInitialized: Boolean,
+    initializationError: Throwable?,
+    isSignedIn: Boolean,
+): AuthGateState = when {
+    !hasPublishableKey -> AuthGateState.MissingKey
+    initializationError != null -> AuthGateState.InitializationFailed
+    !isInitialized -> AuthGateState.Loading
+    !isSignedIn -> AuthGateState.SignedOut
+    else -> AuthGateState.SignedIn
+}
+
+@Composable
+fun AuthGateContent(
+    state: AuthGateState,
+    signedInContent: @Composable () -> Unit,
+    signedOutContent: @Composable () -> Unit = {
+        AuthView(
             modifier = Modifier.fillMaxSize(),
             onAuthComplete = {}
         )
-        else -> signedInContent()
+    },
+) {
+    when (state) {
+        AuthGateState.MissingKey -> CenteredMessage(text = stringResource(id = R.string.auth_missing_key))
+        AuthGateState.InitializationFailed -> CenteredMessage(text = stringResource(id = R.string.auth_initialization_failed))
+        AuthGateState.Loading -> AuthLoading()
+        AuthGateState.SignedOut -> signedOutContent()
+        AuthGateState.SignedIn -> signedInContent()
     }
 }
 
