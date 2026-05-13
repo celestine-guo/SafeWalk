@@ -1,0 +1,74 @@
+<resources>
+    <string name="app_name">SafeWalk</string>
+    <string name="auth_loading">正在检查登录状态…</string>
+    <string name="auth_missing_key">请先配置 CLERK_PUBLISHABLE_KEY</string>
+    
+    <!-- 顶部状态指示器 -->
+    <string name="status_connected">已连接</string>
+    <string name="status_disconnected">未连接</string>
+    <string name="status_location_on">定位开启</string>
+    <string name="status_location_off">定位关闭</string>
+    <string name="status_guarding">守护中</string>
+    <string name="status_not_guarding">未守护</string>
+    
+    <!-- 模式选择 -->
+    <string name="mode_walking">走夜路</string>
+    <string name="mode_taxi">打车</string>
+    <string name="mode_walking_desc">实时守护您的步行安全</string>
+    <string name="mode_taxi_desc">分享行程，安全抵达</string>
+    <string name="mode_taxi_placeholder">打车模式即将支持</string>
+    
+    <!-- SOS按钮 -->
+    <string name="sos_button_text">SOS</string>
+    <string name="sos_hold_to_activate">长按激活</string>
+    <string name="sos_activated">已激活</string>
+    
+    <!-- 最近联系人 -->
+    <string name="recent_contacts">紧急联系人</string>
+    <string name="add_contact">添加联系人</string>
+    
+    <!-- 安全提示 -->
+    <string name="safety_tip">建议开启定位服务以获得最佳守护体验</string>
+    <string name="safety_tip_action">去设置</string>
+    
+    <!-- 设置 -->
+    <string name="settings">设置</string>
+    <string name="profile">个人资料</string>
+    <string name="emergency_contacts">紧急联系人</string>
+    <string name="notification_settings">通知设置</string>
+    <string name="about">关于</string>
+
+    <!-- 地图页 -->
+    <string name="back">返回</string>
+    <string name="map_screen_title">夜路守护地图</string>
+    <string name="map_permission_title">需要定位权限</string>
+    <string name="map_permission_desc">允许定位后，我们才能获取当前位置、规划步行路线并同步守护位置。</string>
+    <string name="map_permission_action">授权定位</string>
+    <string name="map_permission_denied">请先授予定位权限，再开始守护</string>
+    <string name="map_status_waiting_location">正在获取当前位置…</string>
+    <string name="map_status_long_press_destination">长按地图选择目的地，生成步行路线</string>
+    <string name="map_status_searching_route">正在规划步行路线…</string>
+    <string name="map_route_failed">步行路线规划失败，请重试</string>
+    <string name="map_route_ready_hint">路线已生成，可以开始守护</string>
+    <string name="map_route_ready">步行路线已准备好</string>
+    <string name="map_route_summary_format">预计距离 %1$s，耗时约 %2$s</string>
+    <string name="map_route_searching">路线仍在更新，请稍候</string>
+    <string name="map_start_guarding">开始守护</string>
+    <string name="map_stop_guarding">停止守护</string>
+    <string name="map_creating_trip">正在创建行程…</string>
+    <string name="map_guarding_active">守护中，位置将每 15 秒同步一次</string>
+    <string name="map_guarding_stopped">已停止本次守护</string>
+    <string name="map_guard_failed">守护启动失败</string>
+    <string name="map_trip_created_format">已创建行程 #%1$d</string>
+    <string name="map_trip_synced_format">行程 #%1$d 已同步，状态：%2$s</string>
+    <string name="map_location_synced_format">最新位置已同步：%1$s</string>
+    <string name="map_waiting_location_toast">正在定位，请稍后再试</string>
+    <string name="map_init_failed">地图初始化失败</string>
+    <string name="map_render_unavailable">当前模拟器不支持地图渲染，已使用占位地图避免闪退</string>
+    <string name="map_mode_not_supported">当前仅支持走夜路模式</string>
+    <string name="map_start_point">起点</string>
+    <string name="map_destination_point">终点</string>
+    <string name="map_distance_meters_format">%1$d 米</string>
+    <string name="map_duration_minutes_format">%1$d 分钟</string>
+    <string name="map_duration_hours_format">%1$d 小时 %2$d 分钟</string>
+</resources>
