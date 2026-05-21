@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "android-device-automation": {
+      "source": "web-infra-dev/midscene-skills",
+      "sourceType": "github",
+      "computedHash": "e3039855847a95e3b5f1579b1203d8be75ba4fcc88322e3f8687167e64169219"
+    },
+    "qa-testing-android": {
+      "source": "vasilyu1983/ai-agents-public",
+      "sourceType": "github",
+      "computedHash": "a38101c1e62c0374a76cabad0c55f1ea4e348bf086cbdf9a557a465a6b23647b"
+    }
+  }
+}

@@ -1,0 +1,130 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.SafeWalk" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- 动态配色系统 - 浅色模式 -->
+        <item name="colorPrimary">@color/md_theme_light_primary</item>
+        <item name="colorOnPrimary">@color/md_theme_light_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/md_theme_light_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/md_theme_light_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/md_theme_light_secondary</item>
+        <item name="colorOnSecondary">@color/md_theme_light_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/md_theme_light_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/md_theme_light_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/md_theme_light_tertiary</item>
+        <item name="colorOnTertiary">@color/md_theme_light_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/md_theme_light_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/md_theme_light_onTertiaryContainer</item>
+        <item name="colorBackground">@color/md_theme_light_background</item>
+        <item name="colorOnBackground">@color/md_theme_light_onBackground</item>
+        <item name="colorSurface">@color/md_theme_light_surface</item>
+        <item name="colorOnSurface">@color/md_theme_light_onSurface</item>
+        <item name="colorSurfaceVariant">@color/md_theme_light_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/md_theme_light_onSurfaceVariant</item>
+        <item name="colorOutline">@color/md_theme_light_outline</item>
+        <item name="colorError">@color/md_theme_light_error</item>
+        <item name="colorOnError">@color/md_theme_light_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_light_onErrorContainer</item>
+        
+        <!-- 安全语义色系 -->
+        <item name="colorAmberAlert">@color/color_amber_alert</item>
+        <item name="colorAmberAlertContainer">@color/color_amber_alert_container</item>
+        <item name="colorIndigoProtect">@color/color_indigo_protect</item>
+        <item name="colorIndigoProtectContainer">@color/color_indigo_protect_container</item>
+        <item name="colorCrimsonEmergency">@color/color_crimson_emergency</item>
+        <item name="colorCrimsonEmergencyContainer">@color/color_crimson_emergency_container</item>
+        
+        <!-- 状态栏配置 -->
+        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimary</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+        
+        <!-- 字体样式 -->
+        <item name="textAppearanceHeadlineLarge">@style/TextAppearance.SafeWalk.HeadlineLarge</item>
+        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.SafeWalk.HeadlineMedium</item>
+        <item name="textAppearanceHeadlineSmall">@style/TextAppearance.SafeWalk.HeadlineSmall</item>
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.SafeWalk.TitleLarge</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.SafeWalk.TitleMedium</item>
+        <item name="textAppearanceTitleSmall">@style/TextAppearance.SafeWalk.TitleSmall</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.SafeWalk.BodyLarge</item>
+        <item name="textAppearanceBodyMedium">@style/TextAppearance.SafeWalk.BodyMedium</item>
+        <item name="textAppearanceBodySmall">@style/TextAppearance.SafeWalk.BodySmall</item>
+        
+        <!-- 形状样式 -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.SafeWalk.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.SafeWalk.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.SafeWalk.LargeComponent</item>
+    </style>
+
+    <style name="Theme.SafeWalk" parent="Base.Theme.SafeWalk" />
+    
+    <!-- 字体样式 -->
+    <style name="TextAppearance.SafeWalk.HeadlineLarge" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">32sp</item>
+        <item name="android:fontWeight">700</item>
+    </style>
+    
+    <style name="TextAppearance.SafeWalk.HeadlineMedium" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">28sp</item>
+        <item name="android:fontWeight">600</item>
+    </style>
+    
+    <style name="TextAppearance.SafeWalk.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">24sp</item>
+        <item name="android:fontWeight">600</item>
+    </style>
+    
+    <style name="TextAppearance.SafeWalk.TitleLarge" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:fontWeight">600</item>
+    </style>
+    
+    <style name="TextAppearance.SafeWalk.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontWeight">500</item>
+    </style>
+    
+    <style name="TextAppearance.SafeWalk.TitleSmall" parent="TextAppearance.Material3.TitleSmall">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontWeight">500</item>
+    </style>
+    
+    <style name="TextAppearance.SafeWalk.BodyLarge" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontWeight">400</item>
+    </style>
+    
+    <style name="TextAppearance.SafeWalk.BodyMedium" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontWeight">400</item>
+    </style>
+    
+    <style name="TextAppearance.SafeWalk.BodySmall" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontWeight">400</item>
+    </style>
+    
+    <!-- 形状样式 -->
+    <style name="ShapeAppearance.SafeWalk.SmallComponent" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">8dp</item>
+    </style>
+    
+    <style name="ShapeAppearance.SafeWalk.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+    
+    <style name="ShapeAppearance.SafeWalk.LargeComponent" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+</resources>

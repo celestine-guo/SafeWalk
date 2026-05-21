@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="colorBackground" format="color|reference" />
+    <attr name="colorAmberAlert" format="color|reference" />
+    <attr name="colorAmberAlertContainer" format="color|reference" />
+    <attr name="colorIndigoProtect" format="color|reference" />
+    <attr name="colorIndigoProtectContainer" format="color|reference" />
+    <attr name="colorCrimsonEmergency" format="color|reference" />
+    <attr name="colorCrimsonEmergencyContainer" format="color|reference" />
+</resources>

@@ -1,0 +1,28 @@
+[project]
+name = "safewalk-backend"
+version = "1.0.0"
+description = "SafeWalk后端API服务"
+authors = [
+    { name = "Developer", email = "developer@example.com" },
+]
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi==0.104.1",
+    "uvicorn[standard]==0.24.0.post1",
+    "sqlalchemy==2.0.23",
+    "greenlet==3.0.3",
+    "asyncpg==0.29.0",
+    "aiosqlite==0.20.0",
+    "pydantic==2.5.0",
+    "pydantic-settings==2.1.0",
+    "python-dotenv==1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.uvicorn]
+host = "0.0.0.0"
+port = 8000
+reload = true
