@@ -17,10 +17,11 @@ class Settings(BaseSettings):
     # 数据库配置
     DATABASE_URL: str = "sqlite+aiosqlite:///./safewalk.db"
 
-    # 安全配置
-    SECRET_KEY: str = "dev-secret-key"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Clerk认证配置
+    CLERK_SECRET_KEY: str = ""
+    CLERK_PUBLISHABLE_KEY: str = ""
+    CLERK_JWT_KEY: str = ""
+    CLERK_AUTHORIZED_PARTIES: list[str] = []
 
     # 服务器配置
     HOST: str = "0.0.0.0"

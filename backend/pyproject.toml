@@ -5,7 +5,7 @@ description = "SafeWalk后端API服务"
 authors = [
     { name = "Developer", email = "developer@example.com" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi==0.104.1",
     "uvicorn[standard]==0.24.0.post1",
@@ -16,6 +16,10 @@ dependencies = [
     "pydantic==2.5.0",
     "pydantic-settings==2.1.0",
     "python-dotenv==1.0.0",
+    "clerk-backend-api==5.0.6",
+    "pytest==8.3.5",
+    "pytest-asyncio==0.25.3",
+    "httpx==0.28.1",
 ]
 
 [build-system]
