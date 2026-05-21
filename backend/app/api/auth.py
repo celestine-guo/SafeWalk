@@ -31,14 +31,14 @@ async def require_current_user(request: Request) -> CurrentUser:
     clerk = Clerk(bearer_auth=settings.CLERK_SECRET_KEY)
 
     try:
-        request_state = clerk.authenticate_request(
+        request_state = await clerk.authenticate_request_async(
             request,
             _build_auth_options(),
         )
     except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service error",
         ) from exc
 
     payload = request_state.payload or {}
