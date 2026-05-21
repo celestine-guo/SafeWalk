@@ -268,8 +268,8 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
             routeSearch = RouteSearch(this).apply {
                 setRouteSearchListener(this@MapActivity)
             }
-        } catch (exception: Exception) {
-            Toast.makeText(this, exception.message ?: getString(R.string.map_init_failed), Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.map_init_failed, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -320,10 +320,10 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
             val fromAndTo = RouteSearch.FromAndTo(start, end)
             val query = RouteSearch.WalkRouteQuery(fromAndTo, RouteSearch.WalkDefault)
             routeSearch?.calculateWalkRouteAsyn(query)
-        } catch (exception: Exception) {
+        } catch (_: Exception) {
             uiState = uiState.copy(
                 isSearchingRoute = false,
-                statusMessage = exception.message ?: getString(R.string.map_route_failed),
+                statusMessage = getString(R.string.map_route_failed),
             )
         }
     }

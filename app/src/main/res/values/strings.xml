@@ -4,6 +4,9 @@
     <string name="auth_missing_key">请先配置 CLERK_PUBLISHABLE_KEY</string>
     <string name="auth_initialization_failed">登录服务初始化失败，请稍后重试</string>
     <string name="auth_session_expired">登录状态已失效，请重新登录</string>
+    <string name="backend_not_configured">请先配置 SAFEWALK_BACKEND_BASE_URL</string>
+    <string name="backend_request_failed">请求失败，请稍后重试</string>
+    <string name="backend_auth_expired">登录状态已失效，请重新登录</string>
     
     <!-- 顶部状态指示器 -->
     <string name="status_connected">已连接</string>

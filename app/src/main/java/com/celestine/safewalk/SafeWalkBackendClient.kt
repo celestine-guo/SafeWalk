@@ -53,6 +53,10 @@ sealed class BackendResult<out T> {
     data class Error(val message: String) : BackendResult<Nothing>()
 }
 
+private class AuthSessionExpiredException : Exception()
+
+private class BackendRequestException : Exception()
+
 class SafeWalkBackendClient(
     private val executor: ExecutorService = Executors.newSingleThreadExecutor(),
     private val authTokenProvider: AuthTokenProvider = ClerkAuthTokenProvider(),
@@ -139,15 +143,19 @@ class SafeWalkBackendClient(
         task: () -> T,
     ) {
         if (!isConfigured()) {
-            dispatch(callback, BackendResult.Error("请先配置 SAFEWALK_BACKEND_BASE_URL"))
+            dispatch(callback, BackendResult.Error(BACKEND_NOT_CONFIGURED_MESSAGE))
             return
         }
 
         executor.execute {
             val result = try {
                 BackendResult.Success(task())
-            } catch (exception: Exception) {
-                BackendResult.Error(exception.message ?: "请求失败")
+            } catch (_: AuthSessionExpiredException) {
+                BackendResult.Error(BACKEND_AUTH_EXPIRED_MESSAGE)
+            } catch (_: BackendRequestException) {
+                BackendResult.Error(BACKEND_REQUEST_FAILED_MESSAGE)
+            } catch (_: Exception) {
+                BackendResult.Error(BACKEND_REQUEST_FAILED_MESSAGE)
             }
             dispatch(callback, result)
         }
@@ -164,7 +172,7 @@ class SafeWalkBackendClient(
 
     private fun request(path: String, method: String, body: String? = null): String {
         val token = authTokenProvider.getToken()
-            ?: throw IllegalStateException("登录状态已失效，请重新登录")
+            ?: throw AuthSessionExpiredException()
 
         val connection = (URL("$baseUrl$path").openConnection() as HttpURLConnection).apply {
             requestMethod = method
@@ -191,8 +199,10 @@ class SafeWalkBackendClient(
             }.orEmpty()
 
             if (code !in 200..299) {
-                val detail = responseText.ifBlank { "HTTP $code" }
-                throw IllegalStateException(detail)
+                if (code == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                    throw AuthSessionExpiredException()
+                }
+                throw BackendRequestException()
             }
 
             return responseText
@@ -202,6 +212,10 @@ class SafeWalkBackendClient(
     }
 
     companion object {
+        private const val BACKEND_NOT_CONFIGURED_MESSAGE = "请先配置 SAFEWALK_BACKEND_BASE_URL"
+        private const val BACKEND_REQUEST_FAILED_MESSAGE = "请求失败，请稍后重试"
+        private const val BACKEND_AUTH_EXPIRED_MESSAGE = "登录状态已失效，请重新登录"
+
         fun nowIsoString(): String = OffsetDateTime.now().toString()
     }
 }
