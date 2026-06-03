@@ -17,3 +17,5 @@ local.properties
 backend/.venv/
 *.db
 *.log
+__pycache__/
+*.py[cod]

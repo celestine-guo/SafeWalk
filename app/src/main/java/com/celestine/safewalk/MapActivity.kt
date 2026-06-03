@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -32,10 +33,14 @@ import com.amap.api.maps.model.PolylineOptions
 import com.amap.api.maps.TextureMapView
 import com.amap.api.services.core.AMapException
 import com.amap.api.services.core.LatLonPoint
+import com.amap.api.services.help.Inputtips
+import com.amap.api.services.help.InputtipsQuery
+import com.amap.api.services.help.Tip
 import com.amap.api.services.route.BusRouteResult
 import com.amap.api.services.route.DriveRouteResult
 import com.amap.api.services.route.RideRouteResult
 import com.amap.api.services.route.RouteSearch
+import com.amap.api.services.route.RouteSearchV2
 import com.amap.api.services.route.WalkPath
 import com.amap.api.services.route.WalkRouteResult
 import java.time.OffsetDateTime
@@ -49,7 +54,26 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
     private lateinit var backendClient: SafeWalkBackendClient
     private var aMap: AMap? = null
     private var routeSearch: RouteSearch? = null
+    private var routeSearchV2: RouteSearchV2? = null
     private val guardHandler = Handler(Looper.getMainLooper())
+
+    private val routeSearchV2Listener = object : RouteSearchV2.OnRouteSearchListener {
+        override fun onDriveRouteSearched(result: com.amap.api.services.route.DriveRouteResultV2?, errorCode: Int) = Unit
+
+        override fun onBusRouteSearched(result: com.amap.api.services.route.BusRouteResultV2?, errorCode: Int) = Unit
+
+        override fun onRideRouteSearched(result: com.amap.api.services.route.RideRouteResultV2?, errorCode: Int) = Unit
+
+        override fun onWalkRouteSearched(result: com.amap.api.services.route.WalkRouteResultV2?, errorCode: Int) {
+            handleWalkRouteResult(
+                paths = result?.paths.orEmpty(),
+                startPos = result?.startPos,
+                endPos = result?.targetPos,
+                errorCode = errorCode,
+                source = "RouteSearchV2",
+            )
+        }
+    }
 
     private var uiState by mutableStateOf(
         MapUiState(
@@ -61,10 +85,19 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
     private var currentLocation: Location? = null
     private var routeStartPoint: LatLonPoint? = null
     private var destinationPoint: LatLonPoint? = null
-    private var routePolylinePoints: List<LatLng> = emptyList()
-    private var routeDurationSeconds: Int = 0
+    private var routeAlternatives: List<RouteAlternative> = emptyList()
+    private var selectedRouteAlternative: RouteAlternative? = null
     private var activeTripId: Int? = null
     private var hasCenteredOnLocation = false
+    private var destinationSuggestionRequestId = 0
+    private var pendingSuggestionRunnable: Runnable? = null
+
+    private data class RouteAlternative(
+        val id: String,
+        val distanceMeters: Int,
+        val durationSeconds: Int,
+        val polylinePoints: List<LatLng>,
+    )
 
     private val uploadRunnable = object : Runnable {
         override fun run() {
@@ -99,16 +132,24 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
         }
 
         backendClient = SafeWalkBackendClient()
-        if (shouldRenderAmap()) {
-            mapView = TextureMapView(this).also { view ->
-                view.onCreate(savedInstanceState)
+        val renderPolicyAllowsAmap = shouldRenderAmap()
+        if (renderPolicyAllowsAmap) {
+            mapView = runCatching {
+                TextureMapView(this).also { view ->
+                    view.onCreate(savedInstanceState)
+                }
+            }.getOrElse {
+                Log.e("MapActivity", "TextureMapView init failed", it)
+                Toast.makeText(this, R.string.map_init_failed, Toast.LENGTH_SHORT).show()
+                null
             }
         }
+        val isAmapRenderable = mapView != null
 
         uiState = MapUiState(
             permissionGranted = hasLocationPermission(),
-            statusMessage = if (!shouldRenderAmap()) {
-                getString(R.string.map_render_unavailable)
+            statusMessage = if (!isAmapRenderable) {
+                getMapUnavailableMessage()
             } else if (hasLocationPermission()) {
                 getString(R.string.map_status_waiting_location)
             } else {
@@ -123,6 +164,10 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
                     state = uiState,
                     onBack = { finish() },
                     onRequestPermission = { requestLocationPermission() },
+                    onDestinationQueryChange = { onDestinationQueryChanged(it) },
+                    onDestinationSuggestionSelected = { onDestinationSuggestionSelected(it) },
+                    onRouteSelected = { onRouteSelected(it) },
+                    onResetSelection = { resetRouteSelection() },
                     onStartGuard = { startGuarding() },
                     onStopGuard = { stopGuarding() },
                     mapContent = {
@@ -163,6 +208,8 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
 
     override fun onDestroy() {
         stopGuarding()
+        pendingSuggestionRunnable?.let(guardHandler::removeCallbacks)
+        pendingSuggestionRunnable = null
         if (::backendClient.isInitialized) {
             backendClient.shutdown()
         }
@@ -176,17 +223,12 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
 
         if (routeStartPoint == null) {
             routeStartPoint = LatLonPoint(newLocation.latitude, newLocation.longitude)
-            uiState = uiState.copy(statusMessage = getString(R.string.map_status_long_press_destination))
+            uiState = uiState.copy(statusMessage = getString(R.string.map_status_search_destination))
         }
 
+        lockMapAroundLocation(newLocation, animate = !hasCenteredOnLocation)
         if (!hasCenteredOnLocation) {
             hasCenteredOnLocation = true
-            aMap?.animateCamera(
-                CameraUpdateFactory.newLatLngZoom(
-                    LatLng(newLocation.latitude, newLocation.longitude),
-                    16f
-                )
-            )
         }
     }
 
@@ -196,14 +238,10 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
             Toast.makeText(this, R.string.map_waiting_location_toast, Toast.LENGTH_SHORT).show()
             return
         }
-
-        destinationPoint = LatLonPoint(clickedPoint.latitude, clickedPoint.longitude)
-        uiState = uiState.copy(
-            statusMessage = getString(R.string.map_status_searching_route),
-            isSearchingRoute = true,
-            routeSummary = null,
+        onDestinationSelected(
+            destination = LatLonPoint(clickedPoint.latitude, clickedPoint.longitude),
+            displayName = getString(R.string.map_destination_point),
         )
-        searchWalkRoute()
     }
 
     override fun onBusRouteSearched(result: BusRouteResult?, errorCode: Int) = Unit
@@ -213,41 +251,88 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
     override fun onRideRouteSearched(result: RideRouteResult?, errorCode: Int) = Unit
 
     override fun onWalkRouteSearched(result: WalkRouteResult?, errorCode: Int) {
-        if (errorCode != AMapException.CODE_AMAP_SUCCESS || result?.paths.isNullOrEmpty()) {
-            routePolylinePoints = emptyList()
+        handleWalkRouteResult(
+            paths = result?.paths.orEmpty(),
+            startPos = result?.startPos,
+            endPos = result?.targetPos,
+            errorCode = errorCode,
+            source = "RouteSearch",
+        )
+    }
+
+    private fun handleWalkRouteResult(
+        paths: List<WalkPath>,
+        startPos: LatLonPoint?,
+        endPos: LatLonPoint?,
+        errorCode: Int,
+        source: String,
+    ) {
+        Log.d("MapActivity", "Walk route callback from $source, error=$errorCode, pathCount=${paths.size}")
+        if (errorCode != AMapException.CODE_AMAP_SUCCESS || paths.isEmpty()) {
+            routeAlternatives = emptyList()
+            selectedRouteAlternative = null
             uiState = uiState.copy(
                 isSearchingRoute = false,
-                routeSummary = null,
+                routeOptions = emptyList(),
+                selectedRouteId = null,
                 statusMessage = getString(R.string.map_route_failed),
             )
             Toast.makeText(this, R.string.map_route_failed, Toast.LENGTH_SHORT).show()
             return
         }
 
-        val walkPath = result?.paths?.firstOrNull() ?: run {
+        if (startPos == null || endPos == null) {
             uiState = uiState.copy(
                 isSearchingRoute = false,
-                routeSummary = null,
+                routeOptions = emptyList(),
+                selectedRouteId = null,
                 statusMessage = getString(R.string.map_route_failed),
             )
             return
         }
 
-        routeDurationSeconds = walkPath.duration.toInt()
-        routePolylinePoints = buildPolylinePoints(
-            start = result.startPos,
-            walkPath = walkPath,
-            end = result.targetPos,
-        )
-        renderRoute()
+        val alternatives = paths
+            .take(MAX_ROUTE_RECOMMENDATION_COUNT)
+            .mapIndexed { index, walkPath ->
+                RouteAlternative(
+                    id = "route_${index + 1}",
+                    distanceMeters = walkPath.distance.toInt(),
+                    durationSeconds = walkPath.duration.toInt(),
+                    polylinePoints = buildPolylinePoints(
+                        start = startPos,
+                        walkPath = walkPath,
+                        end = endPos,
+                    )
+                )
+            }
+            .filter { it.polylinePoints.isNotEmpty() }
+
+        if (alternatives.isEmpty()) {
+            uiState = uiState.copy(
+                isSearchingRoute = false,
+                routeOptions = emptyList(),
+                selectedRouteId = null,
+                statusMessage = getString(R.string.map_route_failed),
+            )
+            return
+        }
+
+        routeAlternatives = alternatives
+        selectedRouteAlternative = null
+        renderRoute(selectedRoute = null)
 
         uiState = uiState.copy(
             isSearchingRoute = false,
-            routeSummary = MapRouteSummary(
-                distanceText = formatDistance(walkPath.distance.toInt()),
-                durationText = formatDuration(routeDurationSeconds),
-            ),
-            statusMessage = getString(R.string.map_route_ready_hint),
+            routeOptions = alternatives.mapIndexed { index, option ->
+                MapRouteOption(
+                    id = option.id,
+                    title = getString(R.string.map_route_option_title_format, index + 1),
+                    distanceText = formatDistance(option.distanceMeters),
+                    durationText = formatDuration(option.durationSeconds),
+                )
+            },
+            selectedRouteId = null,
+            statusMessage = getString(R.string.map_select_route_to_guard),
         )
     }
 
@@ -267,6 +352,9 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
         try {
             routeSearch = RouteSearch(this).apply {
                 setRouteSearchListener(this@MapActivity)
+            }
+            routeSearchV2 = RouteSearchV2(this).apply {
+                setRouteSearchListener(routeSearchV2Listener)
             }
         } catch (_: Exception) {
             Toast.makeText(this, R.string.map_init_failed, Toast.LENGTH_SHORT).show()
@@ -289,7 +377,7 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
         if (aMap == null) {
             uiState = uiState.copy(
                 permissionGranted = true,
-                statusMessage = getString(R.string.map_render_unavailable),
+                statusMessage = getMapUnavailableMessage(),
             )
             return
         }
@@ -298,7 +386,7 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
             aMap?.isMyLocationEnabled = true
             uiState = uiState.copy(
                 permissionGranted = true,
-                statusMessage = if (routeSummaryAvailable()) {
+                statusMessage = if (routeSelected()) {
                     getString(R.string.map_route_ready_hint)
                 } else {
                     getString(R.string.map_status_waiting_location)
@@ -312,14 +400,233 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
         }
     }
 
+    private fun onDestinationQueryChanged(rawQuery: String) {
+        if (!uiState.isGuarding && routeAlternatives.isNotEmpty()) {
+            routeAlternatives = emptyList()
+            selectedRouteAlternative = null
+            uiState = uiState.copy(routeOptions = emptyList(), selectedRouteId = null)
+            renderRoute(selectedRoute = null)
+        }
+
+        uiState = uiState.copy(destinationQuery = rawQuery)
+        val query = rawQuery.trim()
+        pendingSuggestionRunnable?.let(guardHandler::removeCallbacks)
+        pendingSuggestionRunnable = null
+
+        if (query.isEmpty()) {
+            destinationSuggestionRequestId += 1
+            uiState = uiState.copy(
+                destinationSuggestions = emptyList(),
+                isSearchingDestination = false,
+            )
+            return
+        }
+
+        if (routeStartPoint == null) {
+            uiState = uiState.copy(
+                destinationSuggestions = emptyList(),
+                isSearchingDestination = false,
+                statusMessage = getString(R.string.map_status_waiting_location),
+            )
+            return
+        }
+
+        val requestId = destinationSuggestionRequestId + 1
+        destinationSuggestionRequestId = requestId
+        uiState = uiState.copy(
+            isSearchingDestination = true,
+            destinationSuggestions = emptyList(),
+        )
+
+        val searchRunnable = Runnable {
+            requestDestinationSuggestions(query, requestId)
+        }
+        pendingSuggestionRunnable = searchRunnable
+        guardHandler.postDelayed(searchRunnable, DESTINATION_SEARCH_DEBOUNCE_MS)
+    }
+
+    private fun requestDestinationSuggestions(keyword: String, requestId: Int) {
+        val anchorPoint = routeStartPoint ?: return
+        val query = InputtipsQuery(keyword, "").apply {
+            setCityLimit(false)
+            setLocation(anchorPoint)
+        }
+
+        try {
+            val inputtips = Inputtips(this, query)
+            inputtips.setInputtipsListener { tips: List<Tip>?, errorCode: Int ->
+                if (requestId != destinationSuggestionRequestId) {
+                    return@setInputtipsListener
+                }
+                if (errorCode != AMapException.CODE_AMAP_SUCCESS) {
+                    uiState = uiState.copy(
+                        isSearchingDestination = false,
+                        destinationSuggestions = emptyList(),
+                    )
+                    return@setInputtipsListener
+                }
+
+                val suggestions = tips
+                    .orEmpty()
+                    .mapNotNull { tip ->
+                        val point = tip.point ?: return@mapNotNull null
+                        val distanceMeters = calculateDistanceMeters(anchorPoint, point)
+                        if (distanceMeters > MAP_LOCK_RADIUS_METERS) {
+                            return@mapNotNull null
+                        }
+                        val title = tip.name?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                        val subtitle = listOfNotNull(
+                            tip.district?.takeIf { it.isNotBlank() },
+                            tip.address?.takeIf { it.isNotBlank() }
+                        ).joinToString(" · ")
+
+                        MapDestinationSuggestion(
+                            id = tip.poiID?.takeIf { it.isNotBlank() }
+                                ?: "${title}_${point.latitude}_${point.longitude}",
+                            title = title,
+                            subtitle = subtitle,
+                            distanceText = formatDistance(distanceMeters.toInt()),
+                            latitude = point.latitude,
+                            longitude = point.longitude,
+                        ) to distanceMeters
+                    }
+                    .sortedBy { it.second }
+                    .map { it.first }
+                    .take(MAX_DESTINATION_SUGGESTIONS)
+
+                uiState = uiState.copy(
+                    isSearchingDestination = false,
+                    destinationSuggestions = suggestions,
+                )
+            }
+            inputtips.requestInputtipsAsyn()
+        } catch (_: Exception) {
+            if (requestId == destinationSuggestionRequestId) {
+                uiState = uiState.copy(
+                    isSearchingDestination = false,
+                    destinationSuggestions = emptyList(),
+                )
+            }
+        }
+    }
+
+    private fun onDestinationSuggestionSelected(suggestion: MapDestinationSuggestion) {
+        onDestinationSelected(
+            destination = LatLonPoint(suggestion.latitude, suggestion.longitude),
+            displayName = suggestion.title,
+        )
+    }
+
+    private fun onDestinationSelected(destination: LatLonPoint, displayName: String) {
+        if (routeStartPoint == null) {
+            Toast.makeText(this, R.string.map_waiting_location_toast, Toast.LENGTH_SHORT).show()
+            return
+        }
+        destinationPoint = destination
+        routeAlternatives = emptyList()
+        selectedRouteAlternative = null
+        uiState = uiState.copy(
+            destinationQuery = displayName,
+            destinationSuggestions = emptyList(),
+            isSearchingDestination = false,
+            isSearchingRoute = true,
+            routeOptions = emptyList(),
+            selectedRouteId = null,
+            statusMessage = getString(R.string.map_status_searching_route),
+            syncMessage = getString(R.string.map_sync_selected_destination_format, displayName),
+        )
+        searchWalkRoute()
+    }
+
+    private fun onRouteSelected(routeId: String) {
+        val route = routeAlternatives.firstOrNull { it.id == routeId } ?: return
+        selectedRouteAlternative = route
+        renderRoute(selectedRoute = route)
+        uiState = uiState.copy(
+            selectedRouteId = routeId,
+            statusMessage = getString(R.string.map_route_ready_hint),
+            syncMessage = getString(
+                R.string.map_route_selected_format,
+                formatDistance(route.distanceMeters),
+                formatDuration(route.durationSeconds)
+            ),
+        )
+    }
+
+    private fun resetRouteSelection() {
+        destinationPoint = null
+        routeAlternatives = emptyList()
+        selectedRouteAlternative = null
+        renderRoute(selectedRoute = null)
+        uiState = uiState.copy(
+            destinationQuery = "",
+            destinationSuggestions = emptyList(),
+            routeOptions = emptyList(),
+            selectedRouteId = null,
+            isSearchingDestination = false,
+            isSearchingRoute = false,
+            statusMessage = if (routeStartPoint == null) {
+                getString(R.string.map_status_waiting_location)
+            } else {
+                getString(R.string.map_status_search_destination)
+            },
+            syncMessage = null,
+        )
+    }
+
+    private fun lockMapAroundLocation(location: Location, animate: Boolean) {
+        val map = aMap ?: return
+        val center = LatLng(location.latitude, location.longitude)
+        val latDelta = metersToLatitudeDelta(MAP_LOCK_RADIUS_METERS)
+        val lngDelta = metersToLongitudeDelta(MAP_LOCK_RADIUS_METERS, location.latitude)
+        val bounds = LatLngBounds(
+            LatLng(center.latitude - latDelta, center.longitude - lngDelta),
+            LatLng(center.latitude + latDelta, center.longitude + lngDelta),
+        )
+        map.setMapStatusLimits(bounds)
+        map.setMinZoomLevel(MAP_MIN_ZOOM_LEVEL)
+        if (animate) {
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(center, MAP_DEFAULT_ZOOM_LEVEL))
+        }
+    }
+
+    private fun calculateDistanceMeters(start: LatLonPoint, end: LatLonPoint): Float {
+        val result = FloatArray(1)
+        Location.distanceBetween(
+            start.latitude,
+            start.longitude,
+            end.latitude,
+            end.longitude,
+            result,
+        )
+        return result[0]
+    }
+
+    private fun metersToLatitudeDelta(meters: Float): Double {
+        return meters / 111_320.0
+    }
+
+    private fun metersToLongitudeDelta(meters: Float, latitude: Double): Double {
+        val latitudeCos = kotlin.math.cos(Math.toRadians(latitude)).coerceAtLeast(0.01)
+        return meters / (111_320.0 * latitudeCos)
+    }
+
     private fun searchWalkRoute() {
         val start = routeStartPoint ?: return
         val end = destinationPoint ?: return
 
         try {
-            val fromAndTo = RouteSearch.FromAndTo(start, end)
-            val query = RouteSearch.WalkRouteQuery(fromAndTo, RouteSearch.WalkDefault)
-            routeSearch?.calculateWalkRouteAsyn(query)
+            val queryV2 = RouteSearchV2.WalkRouteQuery(
+                RouteSearchV2.FromAndTo(start, end)
+            ).apply {
+                setAlternativeRoute(MAX_ROUTE_RECOMMENDATION_COUNT)
+                setIndoor(false)
+            }
+            routeSearchV2?.calculateWalkRouteAsyn(queryV2) ?: run {
+                val fromAndTo = RouteSearch.FromAndTo(start, end)
+                val query = RouteSearch.WalkRouteQuery(fromAndTo, RouteSearch.WalkMultipath)
+                routeSearch?.calculateWalkRouteAsyn(query)
+            }
         } catch (_: Exception) {
             uiState = uiState.copy(
                 isSearchingRoute = false,
@@ -328,7 +635,7 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
         }
     }
 
-    private fun renderRoute() {
+    private fun renderRoute(selectedRoute: RouteAlternative?) {
         val map = aMap ?: return
         map.clear()
 
@@ -350,25 +657,25 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
             )
         }
 
-        if (routePolylinePoints.isNotEmpty()) {
+        routeAlternatives.forEach { option ->
             map.addPolyline(
                 PolylineOptions()
-                    .addAll(routePolylinePoints)
-                    .color(Color.parseColor("#3B82F6"))
-                    .width(18f)
+                    .addAll(option.polylinePoints)
+                    .color(if (option.id == selectedRoute?.id) Color.parseColor("#1D4ED8") else Color.parseColor("#60A5FA"))
+                    .width(if (option.id == selectedRoute?.id) 20f else 12f)
             )
-
-            val boundsBuilder = LatLngBounds.Builder()
-            routePolylinePoints.forEach(boundsBuilder::include)
-            map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 120))
         }
     }
 
     private fun startGuarding() {
-        if (activeTripId != null || routePolylinePoints.isEmpty()) {
+        if (activeTripId != null) {
             return
         }
 
+        val selectedRoute = selectedRouteAlternative ?: run {
+            Toast.makeText(this, R.string.map_select_route_to_guard, Toast.LENGTH_SHORT).show()
+            return
+        }
         val start = routeStartPoint ?: return
         val end = destinationPoint ?: return
         val location = currentLocation ?: run {
@@ -386,9 +693,9 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
                 destinationLatitude = end.latitude,
                 destinationLongitude = end.longitude,
                 plannedArrivalAt = OffsetDateTime.now(ZoneOffset.UTC)
-                    .plusSeconds(routeDurationSeconds.toLong())
+                    .plusSeconds(selectedRoute.durationSeconds.toLong())
                     .toString(),
-                plannedPath = routePolylinePoints.map { point ->
+                plannedPath = selectedRoute.polylinePoints.map { point ->
                     PathPointPayload(
                         latitude = point.latitude,
                         longitude = point.longitude,
@@ -483,9 +790,24 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
         }
     }
 
-    private fun routeSummaryAvailable(): Boolean = uiState.routeSummary != null
+    private fun routeSelected(): Boolean = selectedRouteAlternative != null
 
-    private fun shouldRenderAmap(): Boolean = !isRunningOnEmulator()
+    private fun getMapUnavailableMessage(): String {
+        return if (BuildConfig.HAS_AMAP_API_KEY) {
+            getString(R.string.map_render_unavailable)
+        } else {
+            getString(R.string.map_missing_key)
+        }
+    }
+
+    private fun shouldRenderAmap(): Boolean {
+        return MapRenderingPolicy.shouldRenderAmap(
+            hasAmapApiKey = BuildConfig.HAS_AMAP_API_KEY,
+            isRunningOnEmulator = isRunningOnEmulator(),
+            isDebugBuild = BuildConfig.DEBUG,
+            forceAmapRenderingOnEmulator = BuildConfig.SAFEWALK_FORCE_AMAP_RENDERING_ON_EMULATOR,
+        )
+    }
 
     private fun hasLocationPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
@@ -537,6 +859,12 @@ class MapActivity : ComponentActivity(), AMap.OnMyLocationChangeListener, AMap.O
         private const val LOCATION_UPLOAD_INTERVAL_MS = 15_000L
         private const val DEFAULT_DEVIATION_THRESHOLD_METERS = 100.0
         private const val DEFAULT_TIMEOUT_GRACE_MINUTES = 10
+        private const val MAX_ROUTE_RECOMMENDATION_COUNT = 3
+        private const val MAX_DESTINATION_SUGGESTIONS = 8
+        private const val DESTINATION_SEARCH_DEBOUNCE_MS = 260L
+        private const val MAP_LOCK_RADIUS_METERS = 5_000f
+        private const val MAP_DEFAULT_ZOOM_LEVEL = 13f
+        private const val MAP_MIN_ZOOM_LEVEL = 11.5f
 
         private fun isRunningOnEmulator(): Boolean {
             return Build.FINGERPRINT.startsWith("generic") ||

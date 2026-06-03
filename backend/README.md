@@ -4,11 +4,12 @@ SafeWalk后端API服务，为女性夜间出行安全场景提供实时定位数
 
 ## 技术栈
 
-- Python 3.9+
+- Python 3.10+
 - FastAPI 0.104.1
 - SQLAlchemy 2.0.23
-- PostgreSQL (asyncpg)
-- Pydantic 2.5.0
+- Supabase PostgreSQL (asyncpg)
+- Clerk（后端会话鉴权）
+- Pydantic 2.11.2
 - Uvicorn
 
 ## 项目结构
@@ -18,9 +19,12 @@ backend/
 ├── app/                      # 应用核心代码
 │   ├── api/                  # API层
 │   │   ├── routers/          # 路由定义
-│   │   │   ├── users.py      # 用户相关路由
+│   │   │   ├── trips.py      # 行程相关路由
 │   │   │   ├── locations.py  # 定位相关路由
-│   │   │   ├── emergencies.py # 紧急事件相关路由
+│   │   │   ├── emergencies.py # 紧急事件相关路由（SOS）
+│   │   │   ├── guardians.py  # 守护人相关路由
+│   │   │   ├── chats.py      # 聊天消息路由
+│   │   │   ├── trip_events.py # 行程事件路由
 │   │   │   └── __init__.py
 │   │   ├── middleware.py     # 中间件配置
 │   │   └── __init__.py
@@ -48,6 +52,9 @@ backend/
 ├── utils/                    # 工具函数
 │   └── __init__.py
 ├── .env.example              # 环境变量示例
+├── sql/
+│   ├── supabase_schema.sql   # Supabase表结构初始化脚本
+│   └── supabase_security.sql # Supabase安全策略/RLS脚本
 ├── main.py                   # 应用入口
 ├── requirements.txt          # 依赖文件
 ├── pyproject.toml            # 项目配置
@@ -72,25 +79,84 @@ cp .env.example .env
 # 编辑.env文件，设置数据库连接等配置
 ```
 
-### 3. 启动服务
+### 3. 初始化 Supabase 表结构与安全策略
+
+当前生产 Supabase 项目：
+
+- Project ID / ref: `zmaxcsvwmeboegezsmxe`
+- Project URL: `https://zmaxcsvwmeboegezsmxe.supabase.co`
+- Region: `ap-southeast-1`
+
+在 Supabase SQL Editor 依次执行：
+
+1. `backend/sql/supabase_schema.sql`
+2. `backend/sql/supabase_security.sql`
+
+### 4. 启动服务
 
 ```bash
-uvicorn main:app --reload
+uvicorn backend.main:app --reload
 ```
 
 服务将在 http://localhost:8000 启动。
 
-### 4. 访问API文档
+### 5. 访问API文档
 
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+## Android 端 API 地址配置
+
+Android 客户端读取 `SAFEWALK_BACKEND_BASE_URL`。可任选一种方式：
+
+1. `local.properties`：
+   `SAFEWALK_BACKEND_BASE_URL=http://10.0.2.2:8000/api`
+2. 环境变量：
+   `export SAFEWALK_BACKEND_BASE_URL=http://<your-host>:8000/api`
+3. Gradle 参数：
+   `./gradlew assembleDebug -PSAFEWALK_BACKEND_BASE_URL=http://<your-host>:8000/api`
+
+真机体验和分发版本必须使用公网 HTTPS FastAPI 地址，例如：
+
+```properties
+SAFEWALK_BACKEND_BASE_URL=https://<your-backend-domain>/api
+```
+
+当前架构保留 FastAPI + Clerk；Android 不直接访问 Supabase 业务表，也不需要配置 Supabase `service_role` key。
+
+## Render 托管
+
+仓库根目录提供 `render.yaml`，可在 Render 上创建 Blueprint Web Service：
+
+- Runtime: Python
+- Region: Singapore
+- Root Directory: 留空，使用仓库根目录
+- Build Command: `pip install -r backend/requirements.txt`
+- Start Command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+- Health Check Path: `/health`
+
+创建 Blueprint 时在 Render Dashboard 填写这些 secret 环境变量：
+
+- `DATABASE_URL`：Supabase Session Pooler asyncpg 连接串，保留 `?ssl=require`
+- `CLERK_SECRET_KEY`
+- `CLERK_PUBLISHABLE_KEY`
+- `CLERK_JWT_KEY`：没有就留空
+- `QWEN_API_KEY`：没有启用聊天能力可先留空
+
+部署成功后，把 Android 构建配置中的 `SAFEWALK_BACKEND_BASE_URL` 改为：
+
+```properties
+SAFEWALK_BACKEND_BASE_URL=https://<render-service>.onrender.com/api
+```
+
 ## 核心功能
 
-1. **用户管理**：注册、查询、更新用户信息
-2. **行程服务**：创建行程并查询行程详情
-3. **定位服务**：按行程记录和查询用户位置信息
-4. **紧急事件**：创建、更新和查询紧急事件
+1. **行程服务**：创建行程并查询行程详情
+2. **定位服务**：按行程记录和查询用户位置信息
+3. **紧急事件（SOS）**：创建、更新和查询紧急事件
+4. **守护人管理**：维护守护人联系人
+5. **聊天消息**：保存与读取行程聊天消息
+6. **行程事件**：保存与读取行程事件流
 
 ## 架构设计
 
@@ -102,10 +168,10 @@ uvicorn main:app --reload
 
 ## 安全考虑
 
-- 密码哈希处理（待实现）
-- JWT身份验证（待实现）
-- HTTPS支持（生产环境）
-- 输入验证和参数校验
+- 后端所有业务路由通过 Clerk 会话令牌认证。
+- 数据库以 `user_id = Clerk user_id` 做资源归属校验，接口层返回最小错误信息。
+- `supabase_security.sql` 提供默认收紧的权限策略与 RLS 防御基线。
+- 生产环境务必使用 HTTPS，避免泄漏 `Authorization` 头。
 
 ## 扩展性
 

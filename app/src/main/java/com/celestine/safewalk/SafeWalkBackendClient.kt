@@ -2,6 +2,7 @@ package com.celestine.safewalk
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -62,7 +63,14 @@ class SafeWalkBackendClient(
     private val authTokenProvider: AuthTokenProvider = ClerkAuthTokenProvider(),
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val baseUrl = BuildConfig.SAFEWALK_BACKEND_BASE_URL.trim().trimEnd('/')
+    private val baseUrl = BackendBaseUrlResolver.resolve(BuildConfig.SAFEWALK_BACKEND_BASE_URL)
+
+    init {
+        if (BuildConfig.DEBUG) {
+            val resolvedBaseUrl = if (baseUrl.isBlank()) "<empty>" else baseUrl
+            Log.i("SafeWalkBackendClient", "Resolved backend base url: $resolvedBaseUrl")
+        }
+    }
 
     fun isConfigured(): Boolean = baseUrl.isNotBlank()
 
@@ -212,7 +220,8 @@ class SafeWalkBackendClient(
     }
 
     companion object {
-        private const val BACKEND_NOT_CONFIGURED_MESSAGE = "请先配置 SAFEWALK_BACKEND_BASE_URL"
+        private const val BACKEND_NOT_CONFIGURED_MESSAGE =
+            "请先配置 SAFEWALK_BACKEND_BASE_URL，或使用 adb setprop debug.safewalk.backend_base_url <url>"
         private const val BACKEND_REQUEST_FAILED_MESSAGE = "请求失败，请稍后重试"
         private const val BACKEND_AUTH_EXPIRED_MESSAGE = "登录状态已失效，请重新登录"
 

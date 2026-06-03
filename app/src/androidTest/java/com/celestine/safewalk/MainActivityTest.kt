@@ -32,13 +32,14 @@ class MainActivityTest {
     fun homeScreen_displaysCriticalUiElements() {
         launchContent()
 
-        composeRule.onNodeWithText("SafeWalk").assertIsDisplayed()
-        composeRule.onNodeWithText("建议开启定位服务以获得最佳守护体验").assertIsDisplayed()
-        composeRule.onNodeWithText("走夜路").assertIsDisplayed()
-        composeRule.onNodeWithText("打车").assertIsDisplayed()
-        composeRule.onNodeWithText("紧急联系人").assertIsDisplayed()
+        composeRule.onNodeWithText("夜间安全守护").assertIsDisplayed()
+        composeRule.onNodeWithText("系统运行中").assertIsDisplayed()
+        composeRule.onNodeWithText("开始夜路守护").assertIsDisplayed()
+        composeRule.onNodeWithText("位置共享").assertIsDisplayed()
+        composeRule.onNodeWithText("警报").assertIsDisplayed()
         composeRule.onNodeWithTag("sos_button").assertIsDisplayed()
-        composeRule.onNodeWithTag("settings_fab").assertIsDisplayed()
+        composeRule.onNodeWithTag("theme_toggle").assertIsDisplayed()
+        composeRule.onNodeWithTag("bottom_navigation").assertIsDisplayed()
     }
 
     @Test
@@ -49,7 +50,7 @@ class MainActivityTest {
             clickCount += 1
         }
 
-        composeRule.onNodeWithTag("mode_card_走夜路").performClick()
+        composeRule.onNodeWithTag("mode_card_开始夜路守护").performClick()
 
         assertEquals(1, clickCount)
     }
@@ -58,9 +59,9 @@ class MainActivityTest {
     fun clickingTaxiMode_showsPlaceholderMessage() {
         launchContent()
 
-        composeRule.onNodeWithTag("mode_card_打车").performClick()
+        composeRule.onNodeWithTag("mode_card_安心打车").performClick()
 
-        composeRule.onNodeWithTag("mode_card_打车")
+        composeRule.onNodeWithTag("mode_card_安心打车")
             .assert(
                 SemanticsMatcher.expectValue(SemanticsProperties.Selected, true)
             )

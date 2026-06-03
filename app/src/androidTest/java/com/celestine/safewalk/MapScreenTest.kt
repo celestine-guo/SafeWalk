@@ -26,6 +26,10 @@ class MapScreenTest {
                     ),
                     onBack = {},
                     onRequestPermission = {},
+                    onDestinationQueryChange = {},
+                    onDestinationSuggestionSelected = {},
+                    onRouteSelected = {},
+                    onResetSelection = {},
                     onStartGuard = {},
                     onStopGuard = {},
                     mapContent = { MapPlaceholder() }

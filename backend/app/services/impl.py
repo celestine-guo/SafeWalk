@@ -1,82 +1,45 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import desc, select
 
 from backend.app.data.models import (
+    ChatMessageModel,
     EmergencyModel,
+    GuardianModel,
     LocationModel,
     NotificationEventModel,
+    TripEventModel,
     TripModel,
-    UserModel,
 )
 from backend.app.data.repositories import (
-    BaseRepository,
+    ChatMessageRepository,
+    EmergencyRepository,
+    GuardianRepository,
     LocationRepository,
     NotificationEventRepository,
+    TripEventRepository,
     TripRepository,
 )
 from backend.app.models.domain import (
+    ChatRequest,
     EmergencyCreate,
     EmergencyUpdate,
+    GuardianCreate,
     LocationCreate,
     TripCreate,
-    UserCreate,
-    UserUpdate,
+    TripEventCreate,
 )
+
 from .base import BaseService
-
-
-class UserRepository(BaseRepository[UserModel]):
-    """用户仓储实现"""
-
-    model = UserModel
-
-
-class EmergencyRepository(BaseRepository[EmergencyModel]):
-    """紧急事件仓储实现"""
-
-    model = EmergencyModel
-
-
-class UserService(BaseService):
-    """用户服务实现"""
-
-    async def health_check(self) -> dict:
-        return {"status": "healthy", "service": "UserService"}
-
-    async def create_user(self, user_data: UserCreate) -> UserModel:
-        user = UserModel(
-            username=user_data.username,
-            email=user_data.email,
-            phone_number=user_data.phone_number,
-            password_hash=user_data.password,
-        )
-        repo = UserRepository(self.db)
-        return await repo.create(user)
-
-    async def get_user_by_id(self, user_id: int) -> Optional[UserModel]:
-        repo = UserRepository(self.db)
-        return await repo.get_by_id(user_id)
-
-    async def update_user(self, user_id: int, user_data: UserUpdate) -> Optional[UserModel]:
-        repo = UserRepository(self.db)
-        user = await repo.get_by_id(user_id)
-        if not user:
-            return None
-
-        for field, value in user_data.model_dump(exclude_unset=True).items():
-            setattr(user, field, value)
-
-        return await repo.update(user)
 
 
 class TripService(BaseService):
     """行程服务实现"""
 
-    async def create_trip(self, trip_data: TripCreate) -> TripModel:
+    async def create_trip(self, user_id: str, trip_data: TripCreate) -> TripModel:
         trip = TripModel(
-            user_id=trip_data.user_id,
+            user_id=user_id,
             mode=trip_data.mode.value,
             status="active",
             start_latitude=trip_data.start_latitude,
@@ -91,21 +54,25 @@ class TripService(BaseService):
         repo = TripRepository(self.db)
         return await repo.create(trip)
 
-    async def get_trip(self, trip_id: int) -> Optional[TripModel]:
+    async def get_owned_trip(self, trip_id: int, user_id: str) -> Optional[TripModel]:
         repo = TripRepository(self.db)
-        return await repo.get_by_id(trip_id)
+        return await repo.get_owned_by_id(trip_id, user_id)
 
-    async def get_trip_detail(self, trip_id: int) -> tuple[Optional[TripModel], Optional[LocationModel], list[NotificationEventModel]]:
+    async def get_owned_trip_detail(
+        self,
+        trip_id: int,
+        user_id: str,
+    ) -> tuple[Optional[TripModel], Optional[LocationModel], list[NotificationEventModel]]:
         trip_repo = TripRepository(self.db)
         location_repo = LocationRepository(self.db)
         notification_repo = NotificationEventRepository(self.db)
 
-        trip = await trip_repo.get_by_id(trip_id)
+        trip = await trip_repo.get_owned_by_id(trip_id, user_id)
         if not trip:
             return None, None, []
 
         latest_location = await location_repo.get_latest_for_trip(trip_id)
-        notifications = await notification_repo.list_events(trip_id=trip_id)
+        notifications = await notification_repo.list_events(trip_id=trip_id, user_id=user_id)
         return trip, latest_location, notifications
 
 
@@ -115,7 +82,12 @@ class LocationService(BaseService):
     async def health_check(self) -> dict:
         return {"status": "healthy", "service": "LocationService"}
 
-    async def create_location(self, location_data: LocationCreate) -> LocationModel:
+    async def create_location(self, user_id: str, location_data: LocationCreate) -> Optional[LocationModel]:
+        trip_repo = TripRepository(self.db)
+        trip = await trip_repo.get_owned_by_id(location_data.trip_id, user_id)
+        if not trip:
+            return None
+
         location = LocationModel(
             trip_id=location_data.trip_id,
             latitude=location_data.latitude,
@@ -126,7 +98,17 @@ class LocationService(BaseService):
         repo = LocationRepository(self.db)
         return await repo.create(location)
 
-    async def get_trip_locations(self, trip_id: int, limit: int = 100) -> List[LocationModel]:
+    async def get_trip_locations(
+        self,
+        user_id: str,
+        trip_id: int,
+        limit: int = 100,
+    ) -> Optional[list[LocationModel]]:
+        trip_repo = TripRepository(self.db)
+        trip = await trip_repo.get_owned_by_id(trip_id, user_id)
+        if not trip:
+            return None
+
         result = await self.db.execute(
             select(LocationModel)
             .where(LocationModel.trip_id == trip_id)
@@ -142,9 +124,9 @@ class EmergencyService(BaseService):
     async def health_check(self) -> dict:
         return {"status": "healthy", "service": "EmergencyService"}
 
-    async def create_emergency(self, emergency_data: EmergencyCreate) -> EmergencyModel:
+    async def create_emergency(self, user_id: str, emergency_data: EmergencyCreate):
         emergency = EmergencyModel(
-            user_id=emergency_data.user_id,
+            user_id=user_id,
             type=emergency_data.type.value,
             status=emergency_data.status.value,
             latitude=emergency_data.latitude,
@@ -153,9 +135,14 @@ class EmergencyService(BaseService):
         repo = EmergencyRepository(self.db)
         return await repo.create(emergency)
 
-    async def update_emergency(self, emergency_id: int, emergency_data: EmergencyUpdate) -> Optional[EmergencyModel]:
+    async def update_emergency(
+        self,
+        emergency_id: int,
+        user_id: str,
+        emergency_data: EmergencyUpdate,
+    ):
         repo = EmergencyRepository(self.db)
-        emergency = await repo.get_by_id(emergency_id)
+        emergency = await repo.get_owned_by_id(emergency_id, user_id)
         if not emergency:
             return None
 
@@ -170,10 +157,80 @@ class EmergencyService(BaseService):
 
         return await repo.update(emergency)
 
-    async def get_active_emergencies(self) -> List[EmergencyModel]:
-        result = await self.db.execute(
-            select(EmergencyModel)
-            .where(EmergencyModel.status != "resolved")
-            .order_by(desc(EmergencyModel.timestamp), desc(EmergencyModel.id))
+    async def get_active_emergencies_for_user(self, user_id: str):
+        repo = EmergencyRepository(self.db)
+        return await repo.list_active_by_user(user_id)
+
+
+class GuardianService(BaseService):
+    """守护人服务实现"""
+
+    async def create_guardian(self, user_id: str, guardian_data: GuardianCreate) -> GuardianModel:
+        guardian = GuardianModel(
+            user_id=user_id,
+            guardian_name=guardian_data.guardian_name,
+            guardian_phone=guardian_data.guardian_phone,
+            relationship=guardian_data.relationship,
+            is_primary=guardian_data.is_primary,
+            note=guardian_data.note,
         )
-        return list(result.scalars().all())
+        repo = GuardianRepository(self.db)
+        return await repo.create(guardian)
+
+    async def list_guardians(self, user_id: str) -> list[GuardianModel]:
+        repo = GuardianRepository(self.db)
+        return await repo.list_by_user(user_id)
+
+
+class ChatService(BaseService):
+    """聊天消息服务实现"""
+
+    async def create_user_message(self, user_id: str, chat_data: ChatRequest) -> Optional[ChatMessageModel]:
+        trip_repo = TripRepository(self.db)
+        trip = await trip_repo.get_owned_by_id(chat_data.trip_id, user_id)
+        if not trip:
+            return None
+
+        repo = ChatMessageRepository(self.db)
+        message = ChatMessageModel(
+            trip_id=chat_data.trip_id,
+            user_id=user_id,
+            role="user",
+            content=chat_data.message,
+            provider="clerk",
+        )
+        return await repo.create(message)
+
+    async def list_trip_messages(self, user_id: str, trip_id: int) -> Optional[list[ChatMessageModel]]:
+        trip_repo = TripRepository(self.db)
+        trip = await trip_repo.get_owned_by_id(trip_id, user_id)
+        if not trip:
+            return None
+
+        repo = ChatMessageRepository(self.db)
+        return await repo.list_by_trip(trip_id)
+
+
+class TripEventService(BaseService):
+    """行程事件服务实现"""
+
+    async def create_event(self, user_id: str, event_data: TripEventCreate) -> Optional[TripEventModel]:
+        trip_repo = TripRepository(self.db)
+        trip = await trip_repo.get_owned_by_id(event_data.trip_id, user_id)
+        if not trip:
+            return None
+
+        repo = TripEventRepository(self.db)
+        event = TripEventModel(
+            trip_id=event_data.trip_id,
+            user_id=user_id,
+            event_type=event_data.event_type.value,
+            title=event_data.title,
+            content=event_data.content,
+            payload_json=event_data.payload,
+        )
+        return await repo.create(event)
+
+    async def list_events(self, user_id: str, trip_id: Optional[int] = None) -> list[TripEventModel]:
+        repo = TripEventRepository(self.db)
+        return await repo.list_events(trip_id=trip_id, user_id=user_id)

@@ -1,14 +1,37 @@
-val amapApiKeyProvider = providers.gradleProperty("AMAP_API_KEY")
+import java.util.Properties
+
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use(::load)
+    }
+}
+
+val amapApiKeyFromLocalProperties = providers.provider {
+    localProperties.getProperty("amap.key")?.trim().orEmpty()
+}
+
+val amapApiKeyProvider = providers.gradleProperty("amap.key")
+    .orElse(providers.gradleProperty("AMAP_API_KEY"))
     .orElse(providers.environmentVariable("AMAP_API_KEY"))
+    .orElse(amapApiKeyFromLocalProperties)
     .orElse("")
 
 val backendBaseUrlProvider = providers.gradleProperty("SAFEWALK_BACKEND_BASE_URL")
     .orElse(providers.environmentVariable("SAFEWALK_BACKEND_BASE_URL"))
+    .orElse(providers.provider {
+        localProperties.getProperty("SAFEWALK_BACKEND_BASE_URL").orEmpty()
+    })
     .orElse("")
 
 val clerkPublishableKeyProvider = providers.gradleProperty("CLERK_PUBLISHABLE_KEY")
     .orElse(providers.environmentVariable("CLERK_PUBLISHABLE_KEY"))
     .orElse("")
+
+val forceAmapRenderingOnEmulatorProvider = providers.gradleProperty("SAFEWALK_FORCE_AMAP_RENDERING_ON_EMULATOR")
+    .orElse(providers.environmentVariable("SAFEWALK_FORCE_AMAP_RENDERING_ON_EMULATOR"))
+    .map { it.toBooleanStrictOrNull() ?: false }
+    .orElse(false)
 
 plugins {
     alias(libs.plugins.android.application)
@@ -42,6 +65,16 @@ android {
             "CLERK_PUBLISHABLE_KEY",
             "\"${clerkPublishableKeyProvider.get()}\""
         )
+        buildConfigField(
+            "Boolean",
+            "SAFEWALK_FORCE_AMAP_RENDERING_ON_EMULATOR",
+            forceAmapRenderingOnEmulatorProvider.get().toString()
+        )
+        buildConfigField(
+            "Boolean",
+            "HAS_AMAP_API_KEY",
+            amapApiKeyProvider.map { it.isNotBlank() }.get().toString()
+        )
     }
 
     buildTypes {
@@ -60,16 +93,13 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-    sourceSets {
-        getByName("main") {
-            jniLibs.srcDirs("libs/amap")
-        }
+        isCoreLibraryDesugaringEnabled = true
     }
 }
 
 dependencies {
-    implementation(files("libs/amap/AMap3DMap_11.1.001_AMapSearch_9.7.4_AMapLocation_11.1.001_20260402.jar"))
+    coreLibraryDesugaring(libs.android.desugar.jdk.libs)
+    implementation(libs.amap.bundle)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

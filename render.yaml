@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: safewalk-backend
+    runtime: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+      ignoredPaths:
+        - app/**
+        - Docs/**
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: APP_NAME
+        value: SafeWalk Backend
+      - key: APP_VERSION
+        value: 1.0.0
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_POOL_SIZE
+        value: "5"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "5"
+      - key: DATABASE_POOL_TIMEOUT_SECONDS
+        value: "30"
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_JWT_KEY
+        sync: false
+      - key: CLERK_AUTHORIZED_PARTIES
+        value: "[]"
+      - key: BACKEND_CORS_ORIGINS
+        value: '["*"]'
+      - key: LOG_LEVEL
+        value: INFO
+      - key: QWEN_API_KEY
+        sync: false
+      - key: QWEN_BASE_URL
+        value: https://dashscope.aliyuncs.com/compatible-mode/v1
+      - key: QWEN_MODEL
+        value: qwen-plus
+      - key: DEVIATION_THRESHOLD_METERS
+        value: "150.0"
+      - key: TIMEOUT_GRACE_MINUTES
+        value: "10"

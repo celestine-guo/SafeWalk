@@ -7,29 +7,6 @@ from pydantic import Field
 from .base import BaseSchema, IDTimestampSchema
 
 
-class UserCreate(BaseSchema):
-    username: str
-    email: str
-    phone_number: Optional[str] = None
-    password: str
-
-
-class UserUpdate(BaseSchema):
-    username: Optional[str] = None
-    email: Optional[str] = None
-    phone_number: Optional[str] = None
-    is_active: Optional[bool] = None
-    is_verified: Optional[bool] = None
-
-
-class User(IDTimestampSchema):
-    username: str
-    email: str
-    phone_number: Optional[str] = None
-    is_active: bool
-    is_verified: bool
-
-
 class TripMode(str, Enum):
     WALKING = "walking"
     TAXI = "taxi"
@@ -77,7 +54,6 @@ class PathPoint(BaseSchema):
 
 
 class TripCreate(BaseSchema):
-    user_id: int
     mode: TripMode
     start_latitude: float
     start_longitude: float
@@ -90,7 +66,7 @@ class TripCreate(BaseSchema):
 
 
 class Trip(IDTimestampSchema):
-    user_id: int
+    user_id: str
     mode: TripMode
     status: TripStatus
     start_latitude: float
@@ -123,7 +99,7 @@ class Location(IDTimestampSchema):
 
 class ChatMessage(IDTimestampSchema):
     trip_id: int
-    user_id: int
+    user_id: str
     role: ChatRole
     content: str
     provider: str
@@ -131,7 +107,6 @@ class ChatMessage(IDTimestampSchema):
 
 class ChatRequest(BaseSchema):
     trip_id: int
-    user_id: int
     message: str
 
 
@@ -143,7 +118,7 @@ class ChatResponse(BaseSchema):
 
 class NotificationEvent(IDTimestampSchema):
     trip_id: int
-    user_id: int
+    user_id: str
     type: NotificationType
     title: str
     body: str
@@ -158,7 +133,6 @@ class TripDetail(BaseSchema):
 
 
 class EmergencyCreate(BaseSchema):
-    user_id: int
     type: EmergencyType
     status: EmergencyStatus = EmergencyStatus.ACTIVE
     latitude: float
@@ -171,10 +145,55 @@ class EmergencyUpdate(BaseSchema):
 
 
 class Emergency(IDTimestampSchema):
-    user_id: int
+    user_id: str
     type: EmergencyType
     status: EmergencyStatus
     latitude: float
     longitude: float
     timestamp: datetime
     resolved_at: Optional[datetime] = None
+
+
+class GuardianCreate(BaseSchema):
+    guardian_name: str
+    guardian_phone: str
+    relationship: str
+    is_primary: bool = False
+    note: Optional[str] = None
+
+
+class Guardian(IDTimestampSchema):
+    user_id: str
+    guardian_name: str
+    guardian_phone: str
+    relationship: str
+    is_primary: bool
+    note: Optional[str] = None
+
+
+class TripEventType(str, Enum):
+    TRIP_STARTED = "trip_started"
+    LOCATION_UPDATE = "location_update"
+    TRIP_DEVIATED = "trip_deviated"
+    SOS = "sos"
+    ARRIVED = "arrived"
+    TRIP_TIMEOUT = "trip_timeout"
+    CHAT = "chat"
+    SYSTEM = "system"
+
+
+class TripEventCreate(BaseSchema):
+    trip_id: int
+    event_type: TripEventType
+    title: str
+    content: str
+    payload: Optional[dict[str, Any]] = None
+
+
+class TripEvent(IDTimestampSchema):
+    trip_id: int
+    user_id: str
+    event_type: TripEventType
+    title: str
+    content: str
+    payload: Optional[dict[str, Any]] = Field(default=None, alias="payload_json")

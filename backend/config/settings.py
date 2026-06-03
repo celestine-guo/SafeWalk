@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # 数据库配置
-    DATABASE_URL: str = "sqlite+aiosqlite:///./safewalk.db"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@db.project-ref.supabase.co:5432/postgres"
+    DATABASE_POOL_SIZE: int = 10
+    DATABASE_MAX_OVERFLOW: int = 10
+    DATABASE_POOL_TIMEOUT_SECONDS: int = 30
 
     # Clerk认证配置
     CLERK_SECRET_KEY: str = ""

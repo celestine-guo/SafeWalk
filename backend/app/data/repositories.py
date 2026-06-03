@@ -4,7 +4,15 @@ from sqlalchemy import delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .database import Base
-from .models import ChatMessageModel, LocationModel, NotificationEventModel, TripModel
+from .models import (
+    ChatMessageModel,
+    EmergencyModel,
+    GuardianModel,
+    LocationModel,
+    NotificationEventModel,
+    TripEventModel,
+    TripModel,
+)
 
 ModelType = TypeVar("ModelType", bound=Base)
 
@@ -45,6 +53,15 @@ class BaseRepository(Generic[ModelType]):
 class TripRepository(BaseRepository[TripModel]):
     model = TripModel
 
+    async def get_owned_by_id(self, trip_id: int, user_id: str) -> Optional[TripModel]:
+        result = await self.session.execute(
+            select(TripModel)
+            .where(TripModel.id == trip_id)
+            .where(TripModel.user_id == user_id)
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
 
 class LocationRepository(BaseRepository[LocationModel]):
     model = LocationModel
@@ -61,6 +78,48 @@ class LocationRepository(BaseRepository[LocationModel]):
 
 class ChatMessageRepository(BaseRepository[ChatMessageModel]):
     model = ChatMessageModel
+
+    async def list_by_trip(self, trip_id: int) -> list[ChatMessageModel]:
+        result = await self.session.execute(
+            select(ChatMessageModel)
+            .where(ChatMessageModel.trip_id == trip_id)
+            .order_by(desc(ChatMessageModel.created_at), desc(ChatMessageModel.id))
+        )
+        return list(result.scalars().all())
+
+
+class GuardianRepository(BaseRepository[GuardianModel]):
+    model = GuardianModel
+
+    async def list_by_user(self, user_id: str) -> list[GuardianModel]:
+        result = await self.session.execute(
+            select(GuardianModel)
+            .where(GuardianModel.user_id == user_id)
+            .order_by(desc(GuardianModel.is_primary), desc(GuardianModel.created_at))
+        )
+        return list(result.scalars().all())
+
+
+class EmergencyRepository(BaseRepository[EmergencyModel]):
+    model = EmergencyModel
+
+    async def get_owned_by_id(self, emergency_id: int, user_id: str) -> Optional[EmergencyModel]:
+        result = await self.session.execute(
+            select(EmergencyModel)
+            .where(EmergencyModel.id == emergency_id)
+            .where(EmergencyModel.user_id == user_id)
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def list_active_by_user(self, user_id: str) -> list[EmergencyModel]:
+        result = await self.session.execute(
+            select(EmergencyModel)
+            .where(EmergencyModel.user_id == user_id)
+            .where(EmergencyModel.status != "resolved")
+            .order_by(desc(EmergencyModel.timestamp), desc(EmergencyModel.id))
+        )
+        return list(result.scalars().all())
 
 
 class NotificationEventRepository(BaseRepository[NotificationEventModel]):
@@ -83,7 +142,7 @@ class NotificationEventRepository(BaseRepository[NotificationEventModel]):
     async def list_events(
         self,
         trip_id: Optional[int] = None,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
     ) -> list[NotificationEventModel]:
         stmt = select(NotificationEventModel).order_by(
             desc(NotificationEventModel.created_at),
@@ -93,6 +152,27 @@ class NotificationEventRepository(BaseRepository[NotificationEventModel]):
             stmt = stmt.where(NotificationEventModel.trip_id == trip_id)
         if user_id is not None:
             stmt = stmt.where(NotificationEventModel.user_id == user_id)
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+
+class TripEventRepository(BaseRepository[TripEventModel]):
+    model = TripEventModel
+
+    async def list_events(
+        self,
+        trip_id: Optional[int] = None,
+        user_id: Optional[str] = None,
+    ) -> list[TripEventModel]:
+        stmt = select(TripEventModel).order_by(
+            desc(TripEventModel.created_at),
+            desc(TripEventModel.id),
+        )
+        if trip_id is not None:
+            stmt = stmt.where(TripEventModel.trip_id == trip_id)
+        if user_id is not None:
+            stmt = stmt.where(TripEventModel.user_id == user_id)
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())

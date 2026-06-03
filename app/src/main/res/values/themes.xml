@@ -61,55 +61,55 @@
     <style name="TextAppearance.SafeWalk.HeadlineLarge" parent="TextAppearance.Material3.HeadlineLarge">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">32sp</item>
-        <item name="android:fontWeight">700</item>
+        <item name="android:fontWeight" tools:targetApi="o">700</item>
     </style>
     
     <style name="TextAppearance.SafeWalk.HeadlineMedium" parent="TextAppearance.Material3.HeadlineMedium">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">28sp</item>
-        <item name="android:fontWeight">600</item>
+        <item name="android:fontWeight" tools:targetApi="o">600</item>
     </style>
     
     <style name="TextAppearance.SafeWalk.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">24sp</item>
-        <item name="android:fontWeight">600</item>
+        <item name="android:fontWeight" tools:targetApi="o">600</item>
     </style>
     
     <style name="TextAppearance.SafeWalk.TitleLarge" parent="TextAppearance.Material3.TitleLarge">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">20sp</item>
-        <item name="android:fontWeight">600</item>
+        <item name="android:fontWeight" tools:targetApi="o">600</item>
     </style>
     
     <style name="TextAppearance.SafeWalk.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">16sp</item>
-        <item name="android:fontWeight">500</item>
+        <item name="android:fontWeight" tools:targetApi="o">500</item>
     </style>
     
     <style name="TextAppearance.SafeWalk.TitleSmall" parent="TextAppearance.Material3.TitleSmall">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">14sp</item>
-        <item name="android:fontWeight">500</item>
+        <item name="android:fontWeight" tools:targetApi="o">500</item>
     </style>
     
     <style name="TextAppearance.SafeWalk.BodyLarge" parent="TextAppearance.Material3.BodyLarge">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">16sp</item>
-        <item name="android:fontWeight">400</item>
+        <item name="android:fontWeight" tools:targetApi="o">400</item>
     </style>
     
     <style name="TextAppearance.SafeWalk.BodyMedium" parent="TextAppearance.Material3.BodyMedium">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">14sp</item>
-        <item name="android:fontWeight">400</item>
+        <item name="android:fontWeight" tools:targetApi="o">400</item>
     </style>
     
     <style name="TextAppearance.SafeWalk.BodySmall" parent="TextAppearance.Material3.BodySmall">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">12sp</item>
-        <item name="android:fontWeight">400</item>
+        <item name="android:fontWeight" tools:targetApi="o">400</item>
     </style>
     
     <!-- 形状样式 -->

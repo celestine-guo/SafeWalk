@@ -10,7 +10,7 @@ class TripModel(Base):
     __tablename__ = "trips"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(String, nullable=False, index=True)
     mode = Column(String, nullable=False)
     status = Column(String, nullable=False, index=True, default="active")
     start_latitude = Column(Float, nullable=False)
@@ -23,22 +23,6 @@ class TripModel(Base):
     planned_path_json = Column(JSON, nullable=False)
     started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     arrived_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-
-class UserModel(Base):
-    """用户数据库模型"""
-
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, nullable=False, unique=True, index=True)
-    email = Column(String, nullable=False, unique=True, index=True)
-    phone_number = Column(String, nullable=True)
-    password_hash = Column(String, nullable=False)
-    is_active = Column(Boolean, nullable=False, default=True)
-    is_verified = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -64,7 +48,7 @@ class EmergencyModel(Base):
     __tablename__ = "emergencies"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(String, nullable=False, index=True)
     type = Column(String, nullable=False)
     status = Column(String, nullable=False, index=True)
     latitude = Column(Float, nullable=False)
@@ -82,7 +66,7 @@ class ChatMessageModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(String, nullable=False, index=True)
     role = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     provider = Column(String, nullable=False, default="qwen")
@@ -97,11 +81,43 @@ class NotificationEventModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(String, nullable=False, index=True)
     type = Column(String, nullable=False)
     status = Column(String, nullable=False, index=True)
     title = Column(String, nullable=False)
     body = Column(Text, nullable=False)
+    payload_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class GuardianModel(Base):
+    """守护人数据库模型"""
+
+    __tablename__ = "guardians"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, nullable=False, index=True)
+    guardian_name = Column(String, nullable=False)
+    guardian_phone = Column(String, nullable=False)
+    relationship = Column(String, nullable=False)
+    is_primary = Column(Boolean, nullable=False, default=False)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class TripEventModel(Base):
+    """行程事件数据库模型"""
+
+    __tablename__ = "trip_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=False, index=True)
+    user_id = Column(String, nullable=False, index=True)
+    event_type = Column(String, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
     payload_json = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
